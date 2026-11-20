@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medicare Physician Fee Schedule (pilot v4)</title>
+<style>
+:root{
+  --orange:#ed702e;--orange-soft:#fce7db;
+  --ink:#363336;--warm:#615754;--mid:#7d7370;--light:#ada39e;
+  --beige:#edebe3;--off:#f5f5f2;--white:#fff;
+  --blue:#4c7b91;--blue-soft:#e4edf1;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--off);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.app{max-width:1200px;margin:0 auto;padding:20px 16px 0;min-height:100svh;display:flex;flex-direction:column;gap:16px}
+
+header{display:flex;align-items:center;gap:10px}
+.mark{flex:none;width:34px;height:16px}
+h1{margin:0;font-size:1.4rem;line-height:1.2;letter-spacing:-.01em;flex:1}
+.open-ref{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px;border-radius:999px;border:2px solid var(--ink);background:var(--white);color:var(--ink);font:inherit;font-weight:650;font-size:.9rem;cursor:pointer}
+.open-ref svg{width:18px;height:18px}
+.open-ref .full{display:none}
+
+/* Step rail */
+.rail{position:relative;display:flex;justify-content:space-between}
+.rail::before,.rail .fill{content:"";position:absolute;top:50%;left:17px;height:2px;margin-top:-1px}
+.rail::before{right:17px;background:var(--light);opacity:.5}
+.rail .fill{background:var(--ink);width:0;transition:width .45s ease}
+.node{position:relative;z-index:1;width:min(36px,9.2vw);height:min(36px,9.2vw);border-radius:50%;border:2px solid var(--light);background:var(--white);color:var(--mid);display:grid;place-items:center;padding:0;cursor:pointer;transition:background .3s,border-color .3s,color .3s,transform .3s}
+.node svg{width:56%;height:56%}
+.node.done{border-color:var(--ink);color:var(--ink)}
+.node.on{background:var(--orange);border-color:var(--orange);color:#fff;transform:scale(1.12)}
+
+/* Stage */
+.stage{background:var(--white);border:1px solid var(--beige);border-radius:18px;padding:18px 18px 22px;flex:1}
+.kicker{margin:0 0 6px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:.75rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--warm)}
+.when{background:var(--beige);color:var(--ink);padding:2px 9px;border-radius:999px;letter-spacing:.01em;text-transform:none;font-weight:600}
+.stage h2{margin:0 0 6px;font-size:1.35rem;line-height:1.25}
+.body p{margin:0 0 6px;font-size:1rem;max-width:78ch}
+.stage.in .txt{animation:fadeup .45s ease both}
+
+/* Controls */
+.dock{position:sticky;bottom:0;padding:10px 0 16px;background:linear-gradient(rgba(245,245,242,0),var(--off) 28%)}
+.timer{height:3px;background:var(--beige);border-radius:2px;overflow:hidden;margin-bottom:10px}
+.timer i{display:block;height:100%;width:0;background:var(--orange)}
+.timer i.run{animation:fillw linear forwards}
+.controls{display:flex;gap:10px;justify-content:center}
+.btn{min-height:46px;padding:0 18px;border-radius:999px;border:2px solid var(--light);background:var(--white);color:var(--ink);font:inherit;font-weight:650;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.btn svg{width:18px;height:18px}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff;min-width:124px;justify-content:center}
+:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
+
+/* Diagram building blocks */
+.dg{margin-top:14px;display:flex;flex-direction:column;gap:14px;font-size:.92rem}
+.dh{margin:0 0 -4px;font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--warm)}
+.ic{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--beige);color:var(--ink)}
+.ic svg{width:20px;height:20px}
+.ic.or{background:var(--orange);color:#fff}
+.ic.bl{background:var(--blue);color:#fff}
+.ic.ink{background:var(--ink);color:#fff}
+.muted{color:var(--warm)}
+.small{font-size:.84rem;line-height:1.45}
+.a{animation:fadeup .5s var(--d,0s) both}
+.pp{animation:pop .45s var(--d,0s) both cubic-bezier(.3,1.5,.5,1)}
+
+.flow{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;position:relative}
+.flow::before{content:"";position:absolute;left:17px;top:18px;bottom:18px;width:2px;background:var(--beige)}
+.flow li{position:relative;display:flex;gap:12px;align-items:flex-start}
+.flow b{display:block;line-height:1.3;margin-top:2px}
+.flow p{margin:2px 0 0;color:var(--warm);font-size:.88rem;line-height:1.45}
+
+.two,.three,.split2{display:grid;gap:14px}
+.panel{border:1px solid var(--beige);border-radius:14px;padding:14px;background:var(--off)}
+.panel.w{background:var(--white)}
+.panel h3{margin:0 0 10px;font-size:1rem;line-height:1.3;display:flex;gap:10px;align-items:center}
+.num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font-size:.8rem;display:grid;place-items:center}
+.who{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.who li{display:flex;gap:10px;align-items:flex-start;font-size:.88rem;line-height:1.45}
+.who .ic{width:30px;height:30px}.who .ic svg{width:17px;height:17px}
+.ticks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:.88rem;line-height:1.45}
+.ticks li{display:flex;gap:10px}
+.ticks li::before{content:"";flex:none;width:8px;height:8px;border-radius:2px;background:var(--c,var(--orange));margin-top:7px}
+
+.card{border:1px solid var(--beige);border-top:5px solid var(--c,var(--orange));border-radius:12px;padding:12px 14px 14px;background:var(--white)}
+.card h3{margin:0;font-size:1rem;display:flex;align-items:center;gap:10px}
+.card .ic{background:var(--c);color:#fff;width:32px;height:32px}
+.card .ic svg{width:18px;height:18px}
+.lbl{display:block;margin:10px 0 1px;font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--warm)}
+.card p{margin:0;font-size:.88rem;line-height:1.45}
+.gpci{background:var(--blue-soft);border-radius:14px;padding:14px}
+.gpci h3{margin:0 0 10px;font-size:1rem;display:flex;align-items:center;gap:10px}
+.gpci .three{gap:12px}
+.gpci p{margin:0;font-size:.88rem;line-height:1.45}
+.goal{display:flex;gap:12px;align-items:flex-start;border-left:4px solid var(--orange);background:var(--orange-soft);border-radius:4px 12px 12px 4px;padding:10px 14px;font-size:.95rem;line-height:1.45;max-width:78ch}
+.goal b{white-space:nowrap}
+
+/* Intro price rows */
+.prices{display:grid;grid-template-columns:auto 1fr auto;gap:10px 12px;align-items:center;background:var(--off);border-radius:14px;padding:14px;align-self:start}
+.prices .nm{font-weight:650;font-size:.9rem}
+.blocks{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.blocks i{width:16px;height:16px;border-radius:3px;background:var(--blue);animation:pop .35s var(--d,0s) both cubic-bezier(.3,1.5,.5,1)}
+.blocks em{font-style:normal;font-size:.8rem;color:var(--warm);margin-left:6px;white-space:nowrap}
+.res{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:.9rem}
+.cf{display:inline-block;background:var(--orange-soft);border:1px solid var(--orange);border-radius:6px;padding:0 6px;font-weight:700}
+.res strong{font-size:1rem}
+
+/* Step 4 bars */
+.bars{display:flex;flex-direction:column;gap:14px;padding:14px;background:var(--off);border-radius:14px}
+.bh{display:flex;justify-content:space-between;gap:8px;font-size:.82rem;margin-bottom:5px}
+.bh b{font-weight:650}
+.track{position:relative;height:26px}
+.track::after{content:"";position:absolute;left:85.71%;top:-5px;bottom:-5px;border-left:2px dashed var(--ink)}
+.bar{display:flex;height:100%;border-radius:5px;overflow:hidden;animation:wipe 1s var(--d,0s) both cubic-bezier(.4,0,.2,1)}
+.bar span{height:100%}
+.bar span+span{box-shadow:inset 2px 0 0 var(--off)}
+.s1{background:var(--orange)}.s2{background:var(--blue)}.s3{background:var(--light)}
+.flag{display:inline-block;font-weight:700;padding:0 8px;border-radius:999px;background:var(--orange-soft);border:1px solid var(--orange);white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--warm)}
+.sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.dash{display:inline-block;width:0;height:12px;border-left:2px dashed var(--ink);margin:0 8px 0 4px;vertical-align:-2px}
+.notes{display:flex;flex-direction:column;gap:10px}
+.notes p{margin:0;display:flex;gap:10px;font-size:.88rem;line-height:1.45}
+.notes .sw{flex:none;margin-top:5px}
+
+/* Step 5 formula + waterfall */
+.fx{display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:var(--off);border-radius:14px;padding:12px}
+.pill{border-radius:8px;padding:5px 9px;background:var(--white);border:1px solid var(--beige);font-size:.84rem;line-height:1.3;white-space:nowrap}
+.pill.hl{background:var(--orange-soft);border-color:var(--orange);font-weight:700}
+.pill.res2{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
+.op{font-weight:700;color:var(--warm);padding:0 2px}
+.grp{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;border:1.5px dashed var(--light);border-radius:12px;padding:6px 8px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.wf{border:1px solid var(--beige);border-radius:14px;overflow:hidden;align-self:start}
+.wf .r{display:grid;grid-template-columns:1fr auto auto;gap:2px 12px;padding:10px 14px;align-items:center;border-top:1px solid var(--beige)}
+.wf .r:first-child{border-top:0}
+.wf .r b{grid-column:1;grid-row:1;font-weight:650;font-size:.92rem;line-height:1.3}
+.wf .r p{grid-column:1;grid-row:2;margin:0;font-size:.82rem;line-height:1.4;color:var(--warm)}
+.wf .r .dl{grid-column:2;grid-row:1/span 2;align-self:center;justify-self:end}
+.wf .r .v{grid-column:3;grid-row:1/span 2;align-self:center}
+.dl{font-weight:700;font-size:.82rem;padding:2px 8px;border-radius:999px;background:var(--beige);white-space:nowrap}
+.dl.dn{background:var(--orange-soft)}
+.dl.up{background:var(--blue-soft)}
+.v{font-variant-numeric:tabular-nums;font-weight:750;min-width:4.3em;text-align:right}
+.wf .r.tot{background:var(--off)}
+.wf .r.opt{background:repeating-linear-gradient(135deg,var(--white) 0 8px,var(--off) 8px 16px)}
+.exc h3{font-size:.95rem}
+.exc .who li{font-size:.86rem}
+
+/* Step 6 */
+.doc{background:var(--white);border:1px solid var(--light);border-radius:6px 22px 6px 6px;padding:14px}
+.doc h3{margin:0 0 8px;font-size:1rem}
+.clock .t{height:10px;border-radius:5px;background:var(--beige);overflow:hidden}
+.clock .t i{display:block;height:100%;width:100%;background:var(--blue);transform-origin:left;animation:fillx 3s var(--d,0s) both linear}
+
+/* Step 7 */
+.cmp{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--off);border-radius:14px;padding:12px 14px;font-size:.9rem}
+.cmp .pill{font-size:.9rem}
+.players{display:grid;gap:10px}
+.player{display:flex;gap:10px;align-items:flex-start;font-size:.86rem;line-height:1.45}
+.player b{display:block;font-size:.9rem}
+
+/* Step 8 */
+.calc{background:var(--off);border-radius:14px;padding:12px 14px}
+.calc table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.9rem}
+.calc th{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--warm);text-align:right;font-weight:700;padding:0 0 6px}
+.calc th:first-child,.calc td:first-child{text-align:left}
+.calc td{text-align:right;padding:5px 0;border-top:1px solid var(--beige)}
+.calc tr.t td{font-weight:750;border-top:2px solid var(--ink)}
+.calc tr.cfr td{border-top:0}
+.split{display:flex;height:18px;border-radius:6px;overflow:hidden}
+.split .m{flex:80;background:var(--blue)}
+.split .p{flex:20;background:var(--orange);box-shadow:inset 2px 0 0 #fff}
+.splitl{display:flex;justify-content:space-between;gap:12px;margin-top:6px;font-size:.88rem;line-height:1.35}
+.splitl span:last-child{text-align:right}
+.splitl b{font-variant-numeric:tabular-nums}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+/* Drawer */
+.scrim{position:fixed;inset:0;background:rgba(54,51,54,.38);opacity:0;pointer-events:none;transition:opacity .3s;z-index:30}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:100vw;background:var(--white);box-shadow:-12px 0 40px rgba(54,51,54,.18);transform:translateX(102%);transition:transform .35s cubic-bezier(.3,.7,.2,1);z-index:31;display:flex;flex-direction:column;visibility:hidden}
+.drawer.open{transform:none;visibility:visible}
+.dtop{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px}
+.dtop h2{margin:0;font-size:1.15rem}
+.close{width:40px;height:40px;border-radius:50%;border:2px solid var(--beige);background:var(--white);display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+.close svg{width:18px;height:18px}
+.tabs{display:flex;gap:4px;padding:0 18px;border-bottom:1px solid var(--beige)}
+.tab{border:0;background:none;font:inherit;font-weight:650;font-size:.92rem;color:var(--warm);padding:10px 12px 12px;border-bottom:3px solid transparent;margin-bottom:-1px;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--orange)}
+.tpanels{flex:1;overflow-y:auto;padding:16px 18px 28px}
+.tpanel[hidden]{display:none}
+.search{width:100%;min-height:42px;border:2px solid var(--beige);border-radius:10px;padding:0 12px;font:inherit;font-size:.95rem;margin-bottom:12px;color:var(--ink)}
+.gl{margin:0}
+.gl div{padding:10px 0;border-top:1px solid var(--beige)}
+.gl div:first-child{border-top:0}
+.gl dt{font-weight:700;font-size:.95rem}
+.gl dd{margin:2px 0 0;font-size:.9rem;line-height:1.5;color:var(--warm)}
+.gl .none{color:var(--warm);font-size:.9rem}
+.mini{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.tpanels{container-type:inline-size}
+.how{display:block}
+.toc{border:1px solid var(--beige);border-radius:12px;padding:12px 14px;margin-bottom:18px;background:var(--off)}
+.toch{margin:0 0 6px;font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--warm)}
+.toc ul{list-style:none;margin:0;padding:0;font-size:.86rem;line-height:1.35}
+.toc li{margin:5px 0}
+.toc li.l4{padding-left:12px}
+.toc a{color:var(--ink);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.toc li.l3>a{font-weight:700}
+@container (min-width:700px){
+  .how{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start}
+  .toc{position:sticky;top:0;margin:0;max-height:calc(100vh - 160px);overflow:auto}
+}
+.prose{max-width:72ch;font-size:.95rem;line-height:1.65}
+.prose .lead{font-size:1rem;color:var(--warm);margin:0 0 6px}
+.prose h3{font-size:1.2rem;margin:30px 0 6px;padding-top:14px;border-top:2px solid var(--beige);scroll-margin-top:8px}
+.prose h4{font-size:1.04rem;margin:22px 0 4px;scroll-margin-top:8px}
+.prose h5{font-size:.82rem;letter-spacing:.05em;text-transform:uppercase;color:var(--warm);margin:16px 0 2px}
+.prose p{margin:0 0 10px}
+.prose ul,.prose ol{margin:0 0 10px;padding-left:22px}
+.prose li{margin:3px 0}
+.prose li>ul{margin:4px 0}
+.prose blockquote{margin:10px 0 14px;padding:10px 14px;background:var(--orange-soft);border-left:4px solid var(--orange);border-radius:4px 10px 10px 4px}
+.prose blockquote p{margin:0}
+.tw{overflow-x:auto;margin:6px 0 14px}
+.prose table{border-collapse:collapse;font-size:.88rem;min-width:100%}
+.prose th{text-align:left;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--warm);padding:6px 10px 6px 0;border-bottom:2px solid var(--ink)}
+.prose td{padding:6px 10px 6px 0;border-bottom:1px solid var(--beige);vertical-align:top}
+.prose .note{font-size:.84rem;color:var(--warm);margin-top:20px}
+.person{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.person .pn{color:var(--ink);font-weight:750;font-size:1.05rem;line-height:1.35}
+.person .pt{color:var(--warm);font-weight:600;font-size:.95rem;line-height:1.35;margin-bottom:2px}
+.person a{color:var(--blue);font-weight:700;text-decoration:underline;text-underline-offset:2px;width:fit-content}
+.person img{margin-top:12px;display:block}
+.gl{display:grid;column-gap:28px}
+@container (min-width:700px){.gl{grid-template-columns:1fr 1fr}.gl div:nth-child(2){border-top:0}}
+.credits dl{margin:0}
+.credits dt{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--warm);margin-top:16px}
+.credits dt:first-child{margin-top:0}
+.credits dd{margin:4px 0 0;font-size:.98rem}
+.credits .ph{background:var(--orange-soft);padding:0 4px;border-radius:4px}
+
+@keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.5)}100%{opacity:1;transform:scale(1)}}
+@keyframes wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes fillx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes fillw{from{width:0}to{width:100%}}
+
+@media (min-width:560px){.open-ref .full{display:inline}.open-ref .short{display:none}}
+@media (min-width:700px){.drawer{width:min(75vw,960px)}.dtop,.tabs{padding-left:28px;padding-right:28px}.tpanels{padding:22px 28px 36px}}
+@media (min-width:700px){
+  .app{padding-top:28px}
+  h1{font-size:1.9rem}.mark{width:42px;height:20px}
+  .stage{padding:26px 30px 30px}
+  .stage h2{font-size:1.55rem}
+  .two{grid-template-columns:1fr 1fr}
+  .three{grid-template-columns:1fr 1fr 1fr}
+  .players{grid-template-columns:1fr 1fr}
+}
+@media (min-width:1000px){
+  .app{padding-left:32px;padding-right:32px}
+  .stage{padding:30px 40px 36px}
+  .split2{grid-template-columns:var(--cols,1fr 1fr);align-items:start}
+  .flow.h{display:grid;grid-template-columns:repeat(var(--n),1fr);gap:18px}
+  .flow.h::before{left:18px;right:18px;top:17px;bottom:auto;width:auto;height:2px}
+  .flow.h li{flex-direction:column;gap:10px}
+  .players{grid-template-columns:repeat(3,1fr)}
+  .fx,.grp{flex-wrap:nowrap}
+}
+@media (prefers-reduced-motion:reduce){
+  .a,.pp,.bar,.blocks i,.clock .t i,.stage.in .txt{animation:none!important}
+  .node,.rail .fill,.drawer,.scrim{transition:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="g-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.2"/></symbol>
+<symbol id="g-tray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8v8H8z"/><path d="M3 13h18l-2 7H5z"/></symbol>
+<symbol id="g-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="8" r="2.2"/><circle cx="12" cy="6.5" r="2.2"/><circle cx="18" cy="8" r="2.2"/><path d="M2.5 15a3.5 3.5 0 0 1 7 0M8.5 14a3.5 3.5 0 0 1 7 0M14.5 15a3.5 3.5 0 0 1 7 0M2 19h20"/></symbol>
+<symbol id="g-bank" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-5 9 5z"/><path d="M5.5 11v7M10 11v7M14 11v7M18.5 11v7M3 21h18"/></symbol>
+<symbol id="g-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4 7h16"/><path d="M4 7l-2.5 6h5zM20 7l-2.5 6h5z"/></symbol>
+<symbol id="g-coin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.2c-.5-1-1.6-1.6-3-1.6-1.7 0-3 .9-3 2.2 0 3 6 1.6 6 4.5 0 1.3-1.3 2.2-3 2.2-1.4 0-2.5-.6-3-1.6M12 6v1.6M12 16.4V18"/></symbol>
+<symbol id="g-draft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h8l3 3v8M4 3v18h7"/><path d="M14 15h7v5h-4l-2 2v-2h-1z"/></symbol>
+<symbol id="g-final" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h10l4 4v14H5z"/><path d="M8.5 13l2.5 2.5 4.5-5"/></symbol>
+<symbol id="g-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M11 14h1.5v4"/></symbol>
+<symbol id="g-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 8l-2 2 2 2M14 8l2 2-2 2"/></symbol>
+<symbol id="g-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5 5"/></symbol>
+<symbol id="g-public" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M15 3h6v5h-3l-2 2V8h-1z"/></symbol>
+<symbol id="g-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><path d="M8 4.5H5V21h14V4.5h-3"/><path d="M8 12l1.5 1.5L12 11M8 17l1.5 1.5L12 16M14.5 12.5h2.5M14.5 17.5h2.5"/></symbol>
+<symbol id="g-present" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v11H3z"/><path d="M12 15v4M8 21l4-2 4 2"/><path d="M7 11l3-3 3 2 4-4"/></symbol>
+<symbol id="g-talk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h11v8H8l-3 3v-3H3z"/><path d="M17 8h4v8h-2v3l-3-3h-5v-2"/></symbol>
+<symbol id="g-vote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16v9H4z"/><path d="M8 12V3h8v9"/><path d="M10 7.5l1.5 1.5L14 6.5"/></symbol>
+<symbol id="g-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-7 18-3-7z"/><path d="M11 14l10-11"/></symbol>
+<symbol id="g-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M10 2.5h4M12 2.5V6M18.5 6.5l1.5-1.5"/></symbol>
+<symbol id="g-clinic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-5 9 5v12z"/><path d="M9.5 21v-5h5v5M12 8v4M10 10h4"/></symbol>
+<symbol id="g-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.8-3.4 8-8 9-4.6-1-8-4.2-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+<symbol id="g-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+<symbol id="g-hosp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6h16v15M2 21h20M12 9v6M9 12h6"/></symbol>
+<symbol id="g-umb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 18 0z"/><path d="M12 12v6a2 2 0 0 0 4 0"/></symbol>
+<symbol id="g-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4"/></symbol>
+<symbol id="g-capitol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21v-7h14v7M4 14h16M7.5 14a4.5 4.5 0 0 1 9 0M12 5v4.5M12 5h2.5M9 17v2M12 17v2M15 17v2"/></symbol>
+<symbol id="g-blocks" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="13" width="7" height="7" rx="1"/><rect x="14" y="13" width="7" height="7" rx="1"/><rect x="8.5" y="4" width="7" height="7" rx="1"/></symbol>
+<symbol id="g-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l4-4 4 2 3-2 3 1 6 5"/><path d="M6 8l-4 4 6 6 2-1 2 2 2-1 2 1 4-4"/><path d="M10 10l3 3"/></symbol>
+<symbol id="g-mask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14v4a7 7 0 0 1-14 0z"/><path d="M5 10H3M19 10h2M9 5h6v4H9zM12 16v.2"/></symbol>
+<symbol id="g-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10h14v11M3 10l9-6 9 6M9 21v-5h6v5"/></symbol>
+<symbol id="g-panel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16M17 8h1M17 11h1M17 14h1"/></symbol>
+</defs>
+</svg>
+
+<main class="app">
+  <header>
+    <svg class="mark" viewBox="0 0 42 20" aria-hidden="true">
+      <circle cx="10" cy="10" r="8.5" fill="#fff" stroke="#ada39e" stroke-width="1"/><path d="M10 1.5a8.5 8.5 0 0 1 0 17z" fill="#ed702e"/>
+      <circle cx="31" cy="10" r="8.5" fill="#edebe3"/><path d="M31 1.5a8.5 8.5 0 0 1 0 17z" fill="#363336"/>
+    </svg>
+    <h1>Medicare Physician Fee Schedule</h1>
+    <button class="open-ref" id="openRef" aria-controls="drawer" aria-expanded="false"><svg aria-hidden="true"><use href="#g-panel"/></svg><span class="full">Glossary &amp; more</span><span class="short">More</span></button>
+  </header>
+
+  <nav class="rail" aria-label="Steps"><span class="fill"></span></nav>
+
+  <section class="stage">
+    <div aria-live="polite">
+      <p class="kicker txt"><span class="stepnum"></span><span class="when"></span></p>
+      <h2 class="txt"></h2>
+      <div class="body txt"></div>
+    </div>
+    <div class="dg"></div>
+  </section>
+
+  <div class="dock">
+    <div class="timer" aria-hidden="true"><i></i></div>
+    <div class="controls">
+      <button class="btn" id="back" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
+      <button class="btn primary" id="play"></button>
+      <button class="btn" id="next" aria-label="Next">Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </div>
+</main>
+
+<!-- Reference drawer -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <div class="dtop">
+    <h2 id="drawerTitle">Reference</h2>
+    <button class="close" id="closeRef" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Reference sections">
+    <button class="tab" role="tab" id="t-gl" aria-controls="p-gl" aria-selected="true">Glossary</button>
+    <button class="tab" role="tab" id="t-how" aria-controls="p-how" aria-selected="false" tabindex="-1">How it works</button>
+    <button class="tab" role="tab" id="t-cr" aria-controls="p-cr" aria-selected="false" tabindex="-1">Credits</button>
+  </div>
+  <div class="tpanels">
+    <section class="tpanel" role="tabpanel" id="p-gl" aria-labelledby="t-gl">
+      <input class="search" id="glSearch" type="search" placeholder="Filter terms" aria-label="Filter glossary terms">
+      <dl class="gl" id="gl"></dl>
+    </section>
+    <section class="tpanel" role="tabpanel" id="p-how" aria-labelledby="t-how" hidden><div class="how"><nav class="toc" aria-label="Contents"><p class="toch">Contents</p><ul><li class="l3"><a href="#how-part-1-the-basics">Part 1: The Basics</a></li><li class="l4"><a href="#how-what-the-fee-schedule-is">What the fee schedule is</a></li><li class="l4"><a href="#how-how-a-price-is-built">How a price is built</a></li><li class="l4"><a href="#how-exceptions-to-a-single-conversion-factor">Exceptions to a single conversion factor</a></li><li class="l4"><a href="#how-two-prices-for-most-services">Two prices for most services</a></li><li class="l4"><a href="#how-who-pays">Who pays</a></li><li class="l3"><a href="#how-part-2-the-annual-cycle-at-a-glance">Part 2: The Annual Cycle at a Glance</a></li><li class="l3"><a href="#how-part-3-step-by-step">Part 3: Step by Step</a></li><li class="l4"><a href="#how-step-1-codes-enter-the-annual-update">Step 1: Codes enter the annual update</a></li><li class="l4"><a href="#how-step-2-the-ruc-recommends-rvus">Step 2: The RUC recommends RVUs</a></li><li class="l4"><a href="#how-step-3-cms-decides-the-rvus">Step 3: CMS decides the RVUs</a></li><li class="l4"><a href="#how-step-4-budget-neutrality-within-the-pe-a">Step 4: Budget neutrality within the PE and malpractice pools</a></li><li class="l4"><a href="#how-step-5-the-conversion-factor">Step 5: The conversion factor</a></li><li class="l4"><a href="#how-step-6-proposed-rule-and-public-comment">Step 6: Proposed rule and public comment</a></li><li class="l4"><a href="#how-step-7-final-rule">Step 7: Final rule</a></li><li class="l4"><a href="#how-step-8-new-rates-take-effect-on-january-">Step 8: New rates take effect on January 1</a></li><li class="l3"><a href="#how-part-4-summary">Part 4: Summary</a></li></ul></nav><div class="prose"><p class="lead">A fuller, text-only version of the explainer. It follows the 2027 fee schedule where a timeline needs a year, and every number in the examples is made up for illustration.</p><h3 id="how-part-1-the-basics">Part 1: The Basics</h3>
+<h4 id="how-what-the-fee-schedule-is">What the fee schedule is</h4>
+<p>The Medicare Physician Fee Schedule (PFS) is the price list Medicare uses to pay for professional services by physicians, nurse practitioners, physician assistants, therapists and other clinicians. Each service has a billing code (a Current Procedural Terminology, or CPT, code), and each code has a payment amount. The Centers for Medicare &amp; Medicaid Services (CMS) updates the schedule every year.</p>
+<h4 id="how-how-a-price-is-built">How a price is built</h4>
+<p>Every code is scored in <strong>relative value units (RVUs)</strong> in three categories:</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>RVU type</th>
+<th>What it measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Work</strong></td>
+<td>The clinician's time, skill and effort</td>
+</tr>
+<tr>
+<td><strong>Practice expense (PE)</strong></td>
+<td>Overhead: staff, supplies, equipment, rent</td>
+</tr>
+<tr>
+<td><strong>Malpractice (MP)</strong></td>
+<td>The cost of professional liability insurance</td>
+</tr>
+</tbody>
+</table></div>
+<p>Each RVU type is adjusted for location with its own <strong>Geographic Practice Cost Index (GPCI)</strong>. The total is then multiplied by one dollar amount, the <strong>conversion factor (CF)</strong>:</p>
+<blockquote>
+<p><strong>Payment = [(Work RVU × Work GPCI) + (PE RVU × PE GPCI) + (MP RVU × MP GPCI)] × Conversion Factor</strong></p>
+</blockquote>
+<ul>
+<li><strong>RVUs</strong> set the <em>relative</em> value of services (for example, a surgery is worth 20 times an office visit).</li>
+<li><strong>GPCIs</strong> adjust each part for local costs.</li>
+<li><strong>The conversion factor</strong> turns those relative values into dollars.</li>
+</ul>
+<h4 id="how-exceptions-to-a-single-conversion-factor">Exceptions to a single conversion factor</h4>
+<p>The same conversion factor applies to nearly every service, with two exceptions:</p>
+<ul>
+<li><strong>Two conversion factors by APM status.</strong> Since 2026, the law sets a slightly higher annual update for clinicians who qualify through an advanced alternative payment model (APM), an arrangement in which clinicians take on financial risk for the cost and quality of care. Those qualifying participants have their own conversion factor; everyone else uses the standard one.</li>
+<li><strong>A separate anesthesia conversion factor.</strong> Anesthesia services aren't priced with RVUs. Payment is <strong>(base units + time units) × the anesthesia conversion factor</strong>. Base units are assigned to each anesthesia code and cover the work apart from time; time units count anesthesia time, one unit per 15 minutes. CMS publishes the anesthesia conversion factor for each locality.</li>
+</ul>
+<h4 id="how-two-prices-for-most-services">Two prices for most services</h4>
+<p>Most codes have two PE values:</p>
+<ul>
+<li><strong>Non-facility:</strong> the service is done in a doctor's office, and the practice pays the overhead. The PE value is higher.</li>
+<li><strong>Facility:</strong> the service is done in a hospital, which bills Medicare separately for its overhead. The PE value is lower.</li>
+</ul>
+<h4 id="how-who-pays">Who pays</h4>
+<p>Medicare pays 80% of the fee schedule amount. The patient (or their supplemental insurance) pays 20%, after the annual deductible.</p>
+<h3 id="how-part-2-the-annual-cycle-at-a-glance">Part 2: The Annual Cycle at a Glance</h3>
+<p>Example: rates for <strong>2027</strong></p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What happens</th>
+<th>When (2027 example)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Codes enter the annual update (new, revised or flagged)</td>
+<td>2025 and earlier</td>
+</tr>
+<tr>
+<td>2</td>
+<td>The RUC recommends RVUs</td>
+<td>2025 – early 2026</td>
+</tr>
+<tr>
+<td>3</td>
+<td>CMS decides the RVUs (work, PE, malpractice, plus location adjustments)</td>
+<td>Spring 2026</td>
+</tr>
+<tr>
+<td>4</td>
+<td>PE and malpractice are balanced within their own pools</td>
+<td>Spring 2026</td>
+</tr>
+<tr>
+<td>5</td>
+<td>CMS calculates the conversion factor</td>
+<td>Spring 2026</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Proposed rule is published, followed by public comment</td>
+<td>Summer 2026 (about 60 days)</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Final rule is published, with RVUs revised and Steps 4–5 redone</td>
+<td>Around November 2026</td>
+</tr>
+<tr>
+<td>8</td>
+<td>New rates take effect</td>
+<td>January 1, 2027</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Key principle:</strong> the conversion factor always comes <strong>last</strong>, because it depends on the final RVUs.</p>
+<h3 id="how-part-3-step-by-step">Part 3: Step by Step</h3>
+<h4 id="how-step-1-codes-enter-the-annual-update">Step 1: Codes enter the annual update</h4>
+<p>A code goes to the RUC only when it needs a value. There are two ways in.</p>
+<p><strong>Way 1: New or revised codes</strong></p>
+<ul>
+<li>The American Medical Association (AMA) owns the CPT code set. Its <strong>CPT Editorial Panel</strong> creates and revises codes.</li>
+<li>Specialty societies and device makers apply for new codes when a new service or technology has no code that fits.</li>
+<li>A new code has no value yet, and a substantially revised code needs a new one. Both go to the RUC.</li>
+</ul>
+<p><strong>Way 2: Flagged ("potentially misvalued") codes</strong></p>
+<ul>
+<li>These are existing codes whose RVUs may be wrong, usually because the service has become faster or easier over time but kept its old value.</li>
+<li>Because of budget neutrality (Steps 4–5), an overvalued code takes money from every other code. That's why these codes get looked for.</li>
+<li><strong>Who flags them:</strong></li>
+<li><strong>CMS</strong>, which is required by law to identify misvalued codes. It uses data screens such as fast billing growth, services moving from hospitals to offices, codes usually billed together, and high-cost codes not reviewed in years.</li>
+<li><strong>The RUC</strong>, through its own review workgroup</li>
+<li><strong>The public</strong>, since anyone can nominate a code to CMS</li>
+<li><strong>Outside watchdogs</strong>, such as the Medicare Payment Advisory Commission (MedPAC), the Government Accountability Office (GAO) and the Department of Health and Human Services (HHS) Inspector General</li>
+</ul>
+<h4 id="how-step-2-the-ruc-recommends-rvus">Step 2: The RUC recommends RVUs</h4>
+<p>The <strong>RUC</strong> (AMA/Specialty Society Relative Value Scale Update Committee) is a private AMA committee of about 30 members, mostly from specialty societies.</p>
+<ol>
+<li>The relevant specialty surveys its physicians about the service: how long it takes and how intense it is.</li>
+<li>The specialty presents a recommended value to the RUC.</li>
+<li>RUC members from other specialties question it and compare it to similar reference codes.</li>
+<li>A recommendation needs a <strong>two-thirds vote</strong> to pass. It's often lower than what the specialty asked for.</li>
+<li>The RUC sends CMS its recommendations for:</li>
+<li><strong>Work RVUs</strong></li>
+<li><strong>Direct PE inputs</strong>, meaning the ingredients of a service (staff minutes, supplies, equipment time) but not their prices</li>
+</ol>
+<p><strong>The RUC deals only in RVUs and inputs. It never sets dollar amounts or the conversion factor.</strong></p>
+<h4 id="how-step-3-cms-decides-the-rvus">Step 3: CMS decides the RVUs</h4>
+<p>CMS has the final say. RUC recommendations are advice.</p>
+<h5>3a. Work RVUs</h5>
+<p>CMS reviews each recommendation and either <strong>accepts it, changes it, or replaces it</strong> with its own value. Its main tools:</p>
+<ul>
+<li><strong>Crosswalk:</strong> match the code to an existing code with similar time and complexity, and use that code's value.</li>
+<li><strong>Time ratio:</strong> if the service now takes less time, cut the RVUs in proportion.</li>
+<li><strong>Survey quality check:</strong> if the survey data is too thin or unreliable, keep the existing value or set one some other way.</li>
+<li><strong>Broad policy adjustments:</strong> sometimes CMS adjusts a whole group of codes at once (for example, a percentage reduction for services it believes have become more efficient over time).</li>
+</ul>
+<p>CMS explains its reasoning for each code in the proposed rule.</p>
+<h5>3b. Practice expense (PE) RVUs</h5>
+<p>PE has two parts:</p>
+<ul>
+<li><strong>Direct costs</strong> (tied to a specific service): CMS takes the RUC-recommended inputs (staff minutes, supplies, equipment) and <strong>prices them</strong> using its own price data.</li>
+<li><strong>Indirect costs</strong> (rent, front desk, billing, IT): CMS spreads these across codes with a <strong>formula</strong> based on each specialty's overall cost structure and, in part, on work RVUs. That's why work RVU changes can also shift PE.</li>
+</ul>
+<p>Each code gets a <strong>facility</strong> and a <strong>non-facility</strong> PE value.</p>
+<h5>3c. Malpractice (MP) RVUs</h5>
+<ul>
+<li>There's no RUC survey. CMS uses <strong>malpractice insurance premium data</strong> by specialty.</li>
+<li>A code's MP RVU reflects the premiums of the specialties that usually perform it.</li>
+<li>A full recalculation from new premium data happens <strong>every few years</strong>. In between, new and revised codes get values based on which specialties perform them.</li>
+</ul>
+<h5>3d. Geographic adjustments (GPCIs)</h5>
+<ul>
+<li><strong>What they are:</strong> every Medicare payment area, called a <strong>locality</strong>, has three GPCIs, one for each RVU type. Each compares local costs with the national average, which is set at 1.00. A PE GPCI of 1.10 means practice costs in that area run about 10% above average.</li>
+<li><strong>What they do:</strong> they raise payments where running a practice costs more and lower them where it costs less. Updates generally move money between localities without changing the national total.</li>
+<li><strong>Limits set by law:</strong></li>
+<li>The work GPCI reflects only <strong>one-quarter</strong> of local differences in physician earnings, which keeps its range narrow.</li>
+<li>Some areas have <strong>minimum values (floors)</strong>: a work GPCI floor of 1.00 that Congress has extended repeatedly, plus permanent floors for Alaska and for a handful of low-density "frontier" states.</li>
+<li>CMS must review and update the GPCIs <strong>at least every three years</strong>.</li>
+</ul>
+<h4 id="how-step-4-budget-neutrality-within-the-pe-a">Step 4: Budget neutrality within the PE and malpractice pools</h4>
+<p><strong>The rule:</strong> RVU changes may not, by themselves, increase total Medicare spending (beyond a small $20 million cushion set by law).</p>
+<p><strong>PE and malpractice are each balanced within their own pool.</strong> The steps are the same for both:</p>
+<ol>
+<li>Take billing counts from a recent complete year, the same counts for every calculation. <em>(For 2027 rates, this is generally 2025 data.)</em></li>
+<li><strong>Target:</strong> last year's PE RVUs × those billing counts, summed across all codes.</li>
+<li><strong>New total:</strong> next year's <strong>full</strong> list of PE RVUs (every code, changed or not) × the <strong>same</strong> billing counts, summed.</li>
+<li>If the new total is higher than the target, multiply <strong>every</strong> code's PE RVU by one factor until the two totals match.</li>
+</ol>
+<h5>Why the billing counts matter</h5>
+<p>The counts are the same in both years, but they're <strong>different for each code</strong>. They work as weights.</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Times billed</th>
+<th>Old PE RVU</th>
+<th>New PE RVU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A (office visit)</td>
+<td>1,000,000</td>
+<td>1.0</td>
+<td>1.1</td>
+</tr>
+<tr>
+<td>B (rare surgery)</td>
+<td>10</td>
+<td>5.0</td>
+<td>4.9</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>Adding up the RVUs alone:</strong> 6.0 before, 6.0 after. It looks like no change.</li>
+<li><strong>Weighting by billing counts:</strong> 1,000,050 before, 1,100,049 after. Spending is about <strong>10% higher</strong>.</li>
+</ul>
+<p>The increase on Code A is paid a million times. The decrease on Code B saves only ten times.</p>
+<h5>Who pays for an increase</h5>
+<p>Example: 10,000 codes on next year's list. 200 got PE increases, and the PE total comes out 1% too high. CMS multiplies <strong>all 10,000 codes</strong> by about 0.99.</p>
+<ul>
+<li><strong>The 200 raised codes:</strong> still higher than last year, but by a little less than the raw increase.</li>
+<li><strong>The 9,800 unchanged codes:</strong> about 1% lower, even though nothing about them changed.</li>
+</ul>
+<p><strong>Budget neutrality controls price changes, not volume.</strong> If more services are billed next year, actual spending can still go up.</p>
+<h4 id="how-step-5-the-conversion-factor">Step 5: The conversion factor</h4>
+<h5>The goal</h5>
+<p>Keep total spending level after the year's RVU changes, then apply only the changes Congress has set in law.</p>
+<h5>Why the conversion factor is needed for budget neutrality</h5>
+<ul>
+<li>PE and malpractice were balanced in Step 4.</li>
+<li><strong>Work RVUs are not rescaled within their pool.</strong> If work RVUs go up overall, the work total is allowed to grow.</li>
+<li>That extra work spending is offset by <strong>lowering the conversion factor</strong>, which affects every service.</li>
+</ul>
+<h5>Part A: Budget-neutrality adjustment</h5>
+<ol>
+<li>Use the same prior-year billing counts.</li>
+<li><strong>Old total:</strong> (old work + PE + MP RVUs) × billing counts × <strong>old CF</strong>, summed across all codes.</li>
+<li><strong>New total:</strong> (new work + PE + MP RVUs) × the <strong>same</strong> billing counts × the <strong>same old CF</strong>, summed.</li>
+<li>
+<p><strong>Adjustment factor = Old total ÷ New total</strong></p>
+</li>
+<li>
+<p>If RVUs went up overall, the factor is <strong>below 1</strong> and the conversion factor goes <strong>down</strong>.</p>
+</li>
+<li>If RVUs went down overall, the factor is <strong>above 1</strong> and the conversion factor goes <strong>up</strong>.</li>
+<li>Since PE and MP are already balanced, this adjustment mostly reflects <strong>work RVU</strong> changes.</li>
+</ol>
+<h5>Part B: Changes set by law (not budget neutral)</h5>
+<p>These are meant to change total spending:</p>
+<ul>
+<li><strong>The annual update set by law:</strong> a small fixed percentage each year.</li>
+<li><strong>Temporary changes from Congress:</strong> Congress sometimes passes a one-time raise for a single year. When it <strong>expires</strong>, it comes back out of the conversion factor the next year, which looks like a cut.</li>
+</ul>
+<h5>Two conversion factors, plus anesthesia</h5>
+<ul>
+<li>Because the law sets a slightly higher annual update for qualifying APM participants, CMS calculates <strong>two conversion factors</strong>: one for those clinicians and one for everyone else. The steps above apply to both.</li>
+<li>CMS also updates the separate <strong>anesthesia conversion factor</strong> each year and publishes it for every locality.</li>
+</ul>
+<h5>Putting it together</h5>
+<blockquote>
+<p><strong>New CF = Old CF × budget-neutrality adjustment × annual update set by law (× add or remove any temporary changes from Congress)</strong></p>
+</blockquote>
+<p><strong>Example with toy numbers:</strong></p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Adjustment</th>
+<th>Conversion factor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Last year's CF</td>
+<td>—</td>
+<td>$30.00</td>
+</tr>
+<tr>
+<td>Budget neutrality (work RVUs rose overall)</td>
+<td>−0.5%</td>
+<td>$29.85</td>
+</tr>
+<tr>
+<td>Annual update set by law</td>
+<td>+0.25%</td>
+<td>$29.92</td>
+</tr>
+</tbody>
+</table></div>
+<p>The order doesn't matter, since these are all multiplications.</p>
+<h4 id="how-step-6-proposed-rule-and-public-comment">Step 6: Proposed rule and public comment</h4>
+<ul>
+<li>CMS publishes the proposed RVUs for every code, its reasoning for each one, and the proposed conversion factors.</li>
+<li>There's a public comment period of about 60 days. Specialty societies, hospitals, insurers, MedPAC, members of Congress and others comment.</li>
+</ul>
+<h4 id="how-step-7-final-rule">Step 7: Final rule</h4>
+<ul>
+<li>CMS considers the comments, responds to the main ones in the rule, and makes final changes to the RVUs.</li>
+<li>Because the RVUs may have changed, CMS <strong>redoes Steps 4 and 5</strong>. That's why the final conversion factor often differs from the proposed one. <em>(Toy example: proposed $29.92, final $29.90.)</em></li>
+</ul>
+<h5>What often changes between proposed and final</h5>
+<ul>
+<li><strong>Values for individual codes</strong>, when commenters bring new data or arguments</li>
+<li><strong>Policy proposals</strong>, which can be finalized, modified, delayed or dropped</li>
+<li><strong>The conversion factor</strong>, because Steps 4 and 5 are rerun</li>
+</ul>
+<h5>What usually stays fixed</h5>
+<ul>
+<li><strong>Updates set by law.</strong> CMS can't change them; only Congress can.</li>
+<li><strong>The budget-neutrality requirement</strong></li>
+<li><strong>The rule's scope.</strong> Under federal rulemaking law, a final rule has to be a "logical outgrowth" of the proposal, so ideas CMS didn't propose usually wait for a later year.</li>
+</ul>
+<h5>Who's involved</h5>
+<ul>
+<li><strong>CMS</strong> writes the rule and answers comments.</li>
+<li><strong>HHS:</strong> the rule is issued under the Department of Health and Human Services, CMS's parent department.</li>
+<li><strong>The White House Office of Management and Budget (OMB)</strong> reviews the final rule before release.</li>
+<li><strong>Congress:</strong> the committees that oversee Medicare (House Ways and Means, House Energy and Commerce, Senate Finance) hold hearings, and lawmakers send comment letters. The final rule is also sent to Congress and GAO under the Congressional Review Act. Major rules normally wait 60 days before taking effect, but CMS has cited good cause to waive that delay so the new rates can start January 1.</li>
+</ul>
+<p>The final rule is usually released around the start of November and published in the Federal Register a few days later.</p>
+<h4 id="how-step-8-new-rates-take-effect-on-january-">Step 8: New rates take effect on January 1</h4>
+<p>Every claim is paid using the payment formula from Part 1 with the new RVUs, GPCIs and conversion factor. Medicare pays 80%; the patient or their supplemental insurance pays 20% after the deductible.</p>
+<p><strong>Worked example with toy numbers:</strong></p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>RVUs</th>
+<th>× GPCI</th>
+<th>=</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Work</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+</tr>
+<tr>
+<td>Practice expense</td>
+<td>0.80</td>
+<td>1.10</td>
+<td>0.88</td>
+</tr>
+<tr>
+<td>Malpractice</td>
+<td>0.20</td>
+<td>0.60</td>
+<td>0.12</td>
+</tr>
+<tr>
+<td><strong>Adjusted RVUs</strong></td>
+<td></td>
+<td></td>
+<td><strong>2.00</strong></td>
+</tr>
+<tr>
+<td>× Conversion factor</td>
+<td></td>
+<td></td>
+<td>$29.90</td>
+</tr>
+<tr>
+<td><strong>Fee schedule amount</strong></td>
+<td></td>
+<td></td>
+<td><strong>$59.80</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Medicare pays 80% ($47.84); the patient pays 20% ($11.96).</p>
+<h5>If Congress acts late</h5>
+<p>Congress can pass a law changing the conversion factor at any point, often in late December, after the final rule is out. When that happens:</p>
+<ol>
+<li><strong>CMS recalculates the conversion factor</strong> to apply the change the law requires.</li>
+<li><strong>CMS republishes the payment amount for every code</strong>, since each one is RVUs × GPCI × conversion factor.</li>
+<li><strong>Medicare's claims processors load the new rates.</strong></li>
+</ol>
+<p>RVUs and GPCIs usually stay as finalized, unless the same law also changes a payment policy.</p>
+<h3 id="how-part-4-summary">Part 4: Summary</h3>
+<ol>
+<li><strong>Codes enter the annual update:</strong> new, revised or flagged as possibly misvalued.</li>
+<li><strong>The RUC recommends</strong> work RVUs and direct PE inputs, based on specialty surveys.</li>
+<li><strong>CMS decides</strong> all RVUs: it accepts, changes or replaces RUC recommendations, prices PE inputs, and uses premium data for malpractice. GPCIs adjust each part for local costs.</li>
+<li><strong>PE and malpractice are balanced within their own pools:</strong> every code is scaled so that each pool's total (RVUs × fixed prior-year billing counts) stays the same.</li>
+<li><strong>The conversion factor absorbs work RVU changes</strong> through budget neutrality, then applies the changes set by law (the annual update, plus any temporary changes added or expiring). There are separate conversion factors for qualifying APM participants and for anesthesia.</li>
+<li><strong>Proposed rule, comments, final rule:</strong> Steps 4 and 5 are recalculated after final RVU changes.</li>
+<li><strong>January 1:</strong> payment = location-adjusted RVUs × conversion factor. If Congress changes the conversion factor late, CMS recalculates and republishes the rates.</li>
+</ol><p class="note">Simplified educational overview. Example figures are made up for illustration.</p></div></div></section>
+    <section class="tpanel credits" role="tabpanel" id="p-cr" aria-labelledby="t-cr" hidden>
+      <dl>
+        <dt>Concept, content and editorial direction</dt>
+        <dd class="person">
+          <span class="pn">Sai Loganathan</span>
+          <span class="pt">Principal Health Economist</span>
+          <a href="mailto:loganathan-sai@norc.org">loganathan-sai@norc.org</a>
+          <a href="https://www.linkedin.com/in/sai-loganathan-3a147343b/" target="_blank" rel="noopener">LinkedIn</a>
+          <img src="data:image/png;base64,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" alt="NORC at the University of Chicago" width="190" style="height:auto">
+        </dd>
+        <dt>Writing, design and code</dt>
+        <dd class="person"><span class="pn">Claude Opus 5.5</span><span class="pt">AI model by Anthropic</span></dd>
+        <dt>About the numbers</dt>
+        <dd>All dollar amounts, RVUs, index values and percentages in the examples are made up for illustration.</dd>
+        <dt>Version</dt>
+        <dd>Version 1, November 2026</dd>
+      </dl>
+    </section>
+  </div>
+</aside>
+
+<script>
+const I = (id, cls = '') => `<span class="ic ${cls}" aria-hidden="true"><svg><use href="#g-${id}"/></svg></span>`;
+const D = s => `style="--d:${s}s"`;
+
+const S = [
+/* ---------- INTRO ---------- */
+{icon:'info', w:'Example used throughout: 2027 prices', t:'How Medicare prices are set', dur:12,
+ s:`<p>Medicare pays physicians, nurse practitioners, physician assistants, therapists and other clinicians from a national price list called the Physician Fee Schedule. The Centers for Medicare &amp; Medicaid Services (CMS) updates it every year. Each update starts about two years before its prices take effect and moves through the eight steps that follow.</p>`,
+ v:`<p class="dh a" ${D(.3)}>How a price is built (toy numbers)</p>
+<div class="split2">
+<div class="prices a" ${D(.4)}>
+  <span class="nm">Office visit</span>
+  <span class="blocks"><i ${D(.8)}></i><i ${D(.9)}></i><em>2 RVUs</em></span>
+  <span class="res a" ${D(1.6)}>× <span class="cf">$30</span> = <strong>$60</strong></span>
+  <span class="nm">Procedure</span>
+  <span class="blocks"><i ${D(1.0)}></i><i ${D(1.1)}></i><i ${D(1.2)}></i><i ${D(1.3)}></i><i ${D(1.4)}></i><i ${D(1.5)}></i><em>6 RVUs</em></span>
+  <span class="res a" ${D(1.8)}>× <span class="cf">$30</span> = <strong>$180</strong></span>
+</div>
+<ul class="who">
+  <li class="a" ${D(2.4)}>${I('blocks','bl')}<span><b>Relative value units (RVUs)</b> score how many resources a service takes compared with other services. A procedure that takes three times the resources of an office visit gets three times the RVUs.</span></li>
+  <li class="a" ${D(3.4)}>${I('coin','or')}<span><b>The conversion factor</b> is the dollar amount Medicare pays per RVU. The same amount applies to nearly every service.</span></li>
+</ul>
+</div>`},
+
+/* ---------- STEP 1 ---------- */
+{icon:'tray', w:'2025 and earlier', t:'Codes enter the annual update', dur:12,
+ s:`<p>Clinicians bill Medicare with Current Procedural Terminology (CPT) codes, a code set owned by the American Medical Association (AMA). Each year's fee schedule update begins with the codes that need a new or revised value.</p>`,
+ v:`<p class="dh a" ${D(.3)}>Two ways a code enters the update</p>
+<div class="two">
+  <div class="panel a" ${D(.4)}>
+    <h3><span class="num">1</span>New or revised codes</h3>
+    <ul class="who">
+      <li class="a" ${D(.9)}>${I('people')}<span>Specialty societies and device makers apply when a new service or technology has no code that fits.</span></li>
+      <li class="a" ${D(1.5)}>${I('book','ink')}<span>The AMA's CPT Editorial Panel creates the new code or revises the existing one.</span></li>
+    </ul>
+  </div>
+  <div class="panel a" ${D(2.2)}>
+    <h3><span class="num">2</span>Possibly misvalued codes</h3>
+    <p class="small muted" style="margin:0 0 10px">Existing codes whose value may be off, most often too high because the service has become faster or easier to perform. Flagged by:</p>
+    <ul class="who">
+      <li class="a" ${D(2.8)}>${I('bank','ink')}<span>CMS, which is required by law to look for them and screens billing data for warning signs</span></li>
+      <li class="a" ${D(3.3)}>${I('public')}<span>Anyone, through public nominations to CMS</span></li>
+      <li class="a" ${D(3.8)}>${I('search')}<span>Oversight bodies such as the Medicare Payment Advisory Commission, the Government Accountability Office and the Health and Human Services Inspector General</span></li>
+    </ul>
+  </div>
+</div>`},
+
+/* ---------- STEP 2 ---------- */
+{icon:'people', w:'2025 – early 2026', t:'The RUC recommends values', dur:13,
+ s:`<p>The AMA/Specialty Society Relative Value Scale Update Committee (RUC) is a private panel of about 30 members, most of them appointed by specialty societies. It reviews each code in five stages.</p>`,
+ v:`<ol class="flow h" style="--n:5">
+  <li class="a" ${D(.4)}>${I('clip','bl')}<div><b>Survey</b><p>The specialty that performs the service surveys its physicians on how long it takes and how intense it is.</p></div></li>
+  <li class="a" ${D(1.2)}>${I('present','bl')}<div><b>Proposal</b><p>The specialty presents a recommended value to the committee.</p></div></li>
+  <li class="a" ${D(2.0)}>${I('talk','bl')}<div><b>Questioning</b><p>Members from other specialties challenge the proposal and compare it with similar codes.</p></div></li>
+  <li class="a" ${D(2.8)}>${I('vote','bl')}<div><b>Vote</b><p>A recommendation needs a two-thirds vote to pass. It often comes in below what the specialty asked for.</p></div></li>
+  <li class="a" ${D(3.6)}>${I('send','or')}<div><b>Recommendation to CMS</b><p>A recommended value for the clinician's work, plus the staff time, supplies and equipment the service uses. CMS treats these as advice.</p></div></li>
+</ol>`},
+
+/* ---------- STEP 3 ---------- */
+{icon:'bank', w:'Spring 2026', t:'CMS sets the RVUs', dur:16,
+ s:`<p>Each code's RVUs are the sum of three parts. CMS makes the final call on all three, then adjusts each one for local costs.</p>`,
+ v:`<div class="three">
+  <div class="card a" style="--c:var(--orange);--d:.4s">
+    <h3>${I('clock')}Work</h3>
+    <span class="lbl">Measures</span><p>The clinician's time, skill and effort.</p>
+    <span class="lbl">How CMS sets it</span><p>Accepts, changes or replaces the RUC's recommendation, often by matching the code to a similar existing one or adjusting for time.</p>
+  </div>
+  <div class="card a" style="--c:var(--blue);--d:1.3s">
+    <h3>${I('clinic')}Practice expense (PE)</h3>
+    <span class="lbl">Measures</span><p>Staff, supplies, equipment and rent. It is higher in a doctor's office than in a hospital, which bills Medicare separately for its own overhead.</p>
+    <span class="lbl">How CMS sets it</span><p>Puts prices on the RUC's list of inputs and spreads general costs such as rent and billing across codes by formula.</p>
+  </div>
+  <div class="card a" style="--c:var(--mid);--d:2.2s">
+    <h3>${I('shield')}Malpractice (MP)</h3>
+    <span class="lbl">Measures</span><p>The cost of professional liability insurance.</p>
+    <span class="lbl">How CMS sets it</span><p>Uses insurance premium data for the specialties that usually perform the service.</p>
+  </div>
+</div>
+<div class="gpci a" ${D(3.2)}>
+  <h3>${I('pin','bl')}Location adjustment: Geographic Practice Cost Index (GPCI)</h3>
+  <div class="three">
+    <div><span class="lbl" style="margin-top:0">What it is</span><p>An index for each of the three parts in each Medicare payment area, called a locality. 1.00 is the national average; 1.10 means costs run about 10% higher.</p></div>
+    <div><span class="lbl" style="margin-top:0">What it does</span><p>Pays more where running a practice costs more and less where it costs less. Updates generally shift money between areas without changing the national total.</p></div>
+    <div><span class="lbl" style="margin-top:0">Limits set by law</span><p>Only a quarter of local differences in physician earnings count toward the work index, and some areas have minimum values. CMS reviews the indexes at least every three years.</p></div>
+  </div>
+</div>`},
+
+/* ---------- STEP 4 ---------- */
+{icon:'scale', w:'Spring 2026', t:'Practice expense and malpractice are balanced', dur:14,
+ s:`<p>RVU changes can't raise total Medicare spending by themselves. CMS checks practice expense and malpractice separately, each against its own total from last year.</p>`,
+ v:`<p class="dh a" ${D(.3)}>Practice expense check (toy numbers)</p>
+<div class="split2" style="--cols:1.7fr 1fr">
+<div class="bars a" ${D(.3)}>
+  <div class="legend">
+    <span><i class="sw s1"></i>Office visit, billed often</span>
+    <span><i class="sw s2"></i>Imaging test</span>
+    <span><i class="sw s3"></i>Rare surgery</span>
+    <span><i class="dash"></i>2026 total</span>
+  </div>
+  <p class="small muted" style="margin:0">Each segment is a code's PE RVUs × the number of times it was billed in 2025. Both years use the same 2025 counts.</p>
+  <div><div class="bh"><b>2026</b></div>
+    <div class="track"><div class="bar" style="--d:.8s;width:85.71%"><span class="s1" style="flex:36"></span><span class="s2" style="flex:24"></span><span class="s3" style="flex:12"></span></div></div></div>
+  <div><div class="bh"><b>2027, as set in Step 3</b><span class="a" ${D(3)}><span class="flag">11% over</span></span></div>
+    <div class="track"><div class="bar" style="--d:2s;width:95.24%"><span class="s1" style="flex:44"></span><span class="s2" style="flex:24"></span><span class="s3" style="flex:12"></span></div></div></div>
+  <div><div class="bh"><b>2027, after balancing</b><span class="a" ${D(4.4)}><span class="flag">every code × 0.9</span></span></div>
+    <div class="track"><div class="bar" style="--d:4s;width:85.71%"><span class="s1" style="flex:39.6"></span><span class="s2" style="flex:21.6"></span><span class="s3" style="flex:10.8"></span></div></div></div>
+</div>
+<div class="notes">
+  <p class="a" ${D(5.2)}><i class="sw s1"></i><span>The office visit's PE RVUs were raised. After scaling it still ends up higher than in 2026, by a bit less.</span></p>
+  <p class="a" ${D(6)}><i class="sw s2"></i><span>The imaging test and the surgery didn't change, yet both end up about 10% lower.</span></p>
+  <p class="a" ${D(6.8)}><i class="sw" style="background:var(--ink)"></i><span>Work RVUs aren't scaled here. They are balanced in the next step, through the conversion factor.</span></p>
+</div>
+</div>`},
+
+/* ---------- STEP 5 ---------- */
+{icon:'coin', w:'Spring 2026', t:'CMS sets the conversion factor', dur:17,
+ s:`<p>The conversion factor turns RVUs into dollars. It comes last because it depends on the final RVUs from Steps 3 and 4.</p>`,
+ v:`<div class="goal a" ${D(.2)}><b>The goal</b><span>Keep total spending level after this year's RVU changes, then apply only the changes Congress has set in law.</span></div>
+<p class="dh a" ${D(.5)}>How the pieces combine into a payment</p>
+<div class="fx a" ${D(.6)}>
+  <span class="grp"><span class="pill"><i class="dot" style="background:var(--orange)"></i>Work RVUs × GPCI</span><span class="op">+</span><span class="pill"><i class="dot" style="background:var(--blue)"></i>PE RVUs × GPCI</span><span class="op">+</span><span class="pill"><i class="dot" style="background:var(--mid)"></i>MP RVUs × GPCI</span></span>
+  <span class="op pp" ${D(1.4)}>×</span><span class="pill hl pp" ${D(1.4)}>Conversion factor</span>
+  <span class="op pp" ${D(1.9)}>=</span><span class="pill res2 pp" ${D(1.9)}>Payment</span>
+</div>
+<div class="split2" style="--cols:1.45fr 1fr">
+<div class="stack">
+<p class="dh a" ${D(2.6)}>How the conversion factor changes, 2026 to 2027 (toy numbers)</p>
+<div class="wf">
+  <div class="r tot a" ${D(2.8)}><b>2026 conversion factor</b><span></span><span class="v">$30.00</span></div>
+  <div class="r a" ${D(3.6)}><b>Budget-neutrality adjustment</b><span class="dl dn">−0.5%</span><span class="v">$29.85</span><p>Offsets the overall rise in work RVUs. Practice expense and malpractice were already balanced in Step 4.</p></div>
+  <div class="r a" ${D(4.8)}><b>Annual update set by law</b><span class="dl up">+0.25%</span><span class="v">$29.92</span><p>Meant to change total spending, so it sits outside budget neutrality.</p></div>
+  <div class="r opt a" ${D(6)}><b>Temporary changes from Congress</b><span class="dl">if any</span><span class="v">±</span><p>A one-year raise is added, then comes back out when it expires.</p></div>
+</div>
+</div>
+<div class="panel exc a" ${D(7)}>
+  <h3>Exceptions to a single conversion factor</h3>
+  <ul class="who">
+    <li>${I('hand','bl')}<span><b>Two conversion factors, by APM status.</b> Since 2026, clinicians who qualify through an advanced alternative payment model (APM), an arrangement where they take on financial risk for cost and quality, get a slightly higher annual update and their own conversion factor.</span></li>
+    <li>${I('mask','bl')}<span><b>A separate anesthesia conversion factor.</b> Anesthesia is paid as (base units for the procedure + time units, one per 15 minutes) × an anesthesia conversion factor that CMS publishes for each locality.</span></li>
+  </ul>
+</div>
+</div>`},
+
+/* ---------- STEP 6 ---------- */
+{icon:'draft', w:'Summer 2026', t:'Proposed rule and public comment', dur:11,
+ s:`<p>CMS publishes everything from Steps 3 to 5 as a proposed rule, then opens a public comment period of about 60 days.</p>`,
+ v:`<div class="two">
+  <div class="doc a" ${D(.4)}>
+    <h3>Proposed rule</h3>
+    <ul class="ticks">
+      <li class="a" ${D(.9)}>Proposed RVUs for every code</li>
+      <li class="a" ${D(1.3)}>CMS's reasoning for each change</li>
+      <li class="a" ${D(1.7)}>Proposed conversion factors ($29.92 in our example)</li>
+    </ul>
+  </div>
+  <div class="panel a" ${D(2.3)}>
+    <h3>Comments come from</h3>
+    <ul class="who">
+      <li class="a" ${D(2.7)}>${I('people','bl')}<span>Specialty societies</span></li>
+      <li class="a" ${D(3.0)}>${I('hosp','bl')}<span>Hospitals and insurers</span></li>
+      <li class="a" ${D(3.3)}>${I('capitol','bl')}<span>The Medicare Payment Advisory Commission and members of Congress</span></li>
+      <li class="a" ${D(3.6)}>${I('public','bl')}<span>Other groups and individuals</span></li>
+    </ul>
+  </div>
+</div>
+<div class="clock a" ${D(4)}><div class="bh"><b>Comment period</b><span class="muted">about 60 days</span></div><div class="t"><i ${D(4.2)}></i></div></div>`},
+
+/* ---------- STEP 7 ---------- */
+{icon:'final', w:'Around November 2026', t:'Final rule', dur:19,
+ s:`<p>CMS weighs the comments and makes its final changes. Any change to the RVUs means Steps 4 and 5 are run again, so the final conversion factor often differs from the proposed one.</p>`,
+ v:`<ol class="flow h" style="--n:4">
+  <li class="a" ${D(.4)}>${I('talk')}<div><b>Comments reviewed</b><p>CMS responds to the main comments in the final rule.</p></div></li>
+  <li class="a" ${D(1.1)}>${I('bank','ink')}<div><b>Final RVU changes</b><p>Some proposed values are kept, others revised.</p></div></li>
+  <li class="a" ${D(1.8)}>${I('redo','bl')}<div><b>Step 4 rerun</b><p>Practice expense and malpractice are rebalanced.</p></div></li>
+  <li class="a" ${D(2.5)}>${I('redo','or')}<div><b>Step 5 rerun</b><p>The conversion factor is recalculated.</p><div class="mini"><span class="pill">Proposed $29.92</span><span class="op">→</span><span class="pill hl">Final $29.90</span></div></div></li>
+</ol>
+<div class="two">
+  <div class="panel a" ${D(3.4)}>
+    <h3>Often changes from proposed to final</h3>
+    <ul class="ticks">
+      <li>Values for individual codes, when commenters bring new data or arguments</li>
+      <li>Policy proposals, which can be finalized, modified, delayed or dropped</li>
+      <li>The conversion factor, because Steps 4 and 5 are rerun</li>
+    </ul>
+  </div>
+  <div class="panel a" style="--c:var(--blue);--d:4.2s">
+    <h3>Usually stays fixed</h3>
+    <ul class="ticks">
+      <li>Updates set by law. Only Congress can change them.</li>
+      <li>The budget-neutrality requirement</li>
+      <li>The rule's scope. The final rule has to follow from what CMS proposed, so new ideas usually wait for a later year's proposal.</li>
+    </ul>
+  </div>
+</div>
+<p class="dh a" ${D(5)}>Who's involved</p>
+<div class="players">
+  <div class="player a" ${D(5.2)}>${I('bank','ink')}<span><b>CMS</b>Writes the rule and answers the comments.</span></div>
+  <div class="player a" ${D(5.5)}>${I('white','ink')}<span><b>HHS and the White House</b>The rule is issued under the Department of Health and Human Services, and the Office of Management and Budget reviews it before release.</span></div>
+  <div class="player a" ${D(5.8)}>${I('capitol','or')}<span><b>Congress</b>The committees that oversee Medicare (House Ways and Means, House Energy and Commerce, Senate Finance) hold hearings, and lawmakers send comment letters. The final rule is also sent to Congress for review.</span></div>
+</div>`},
+
+/* ---------- STEP 8 ---------- */
+{icon:'cal', w:'January 1, 2027', t:'New prices take effect', dur:16,
+ s:`<p>Every claim is paid with the 2027 RVUs, location adjustments and conversion factor.</p>`,
+ v:`<div class="split2">
+<div class="stack">
+<p class="dh a" ${D(.3)}>One service in one location (toy numbers)</p>
+<div class="calc a" ${D(.4)}>
+  <table>
+    <thead><tr><th>Part</th><th>RVUs</th><th>× GPCI</th><th>=</th></tr></thead>
+    <tbody>
+      <tr class="a" ${D(.9)}><td>Work</td><td>1.00</td><td>1.00</td><td>1.00</td></tr>
+      <tr class="a" ${D(1.4)}><td>Practice expense</td><td>0.80</td><td>1.10</td><td>0.88</td></tr>
+      <tr class="a" ${D(1.9)}><td>Malpractice</td><td>0.20</td><td>0.60</td><td>0.12</td></tr>
+      <tr class="t a" ${D(2.5)}><td>Adjusted RVUs</td><td></td><td></td><td>2.00</td></tr>
+      <tr class="cfr a" ${D(3.1)}><td>× Conversion factor</td><td></td><td></td><td>$29.90</td></tr>
+      <tr class="t a" ${D(3.7)}><td>Fee schedule amount</td><td></td><td></td><td>$59.80</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="a" ${D(4.5)}><div class="split"><div class="m"></div><div class="p"></div></div>
+<div class="splitl"><span><i class="sw" style="background:var(--blue)"></i>Medicare pays 80%<br><b>$47.84</b></span><span>Patient pays 20%<i class="sw" style="background:var(--orange);margin:0 0 0 6px"></i><br><b>$11.96</b></span></div></div>
+<p class="small muted a" style="--d:5s;margin:0">The patient's 20% applies after the annual deductible and is often covered by supplemental insurance.</p>
+</div>
+<div class="panel a" ${D(6)}>
+  <h3>${I('capitol','or')}If Congress acts late</h3>
+  <p class="small" style="margin:0 0 10px">Congress sometimes changes the conversion factor by law after the final rule is out, often in late December. When that happens:</p>
+  <ol class="flow">
+    <li>${I('coin')}<div><b>CMS recalculates the conversion factor</b><p>It applies the change the new law requires.</p></div></li>
+    <li>${I('final')}<div><b>CMS republishes payment amounts</b><p>New dollar amounts for every code, since each one is RVUs × GPCI × conversion factor.</p></div></li>
+    <li>${I('send')}<div><b>Claims processors load the new rates</b><p>RVUs and GPCIs usually stay as finalized.</p></div></li>
+  </ol>
+</div>
+</div>`}
+];
+
+const GLOSSARY = [
+ ['Advanced alternative payment model (APM)','A payment arrangement in which clinicians take on financial risk for the cost and quality of care. Clinicians who qualify through one (qualifying APM participants) get a slightly higher annual update and, since 2026, their own conversion factor.'],
+ ['American Medical Association (AMA)','The physician association that owns the CPT code set and convenes the RUC.'],
+ ['Anesthesia conversion factor','A separate dollar amount for anesthesia services. Payment is (base units + time units) × the anesthesia conversion factor, which CMS publishes for each locality.'],
+ ['Annual update set by law','A small fixed percentage change to the conversion factor each year, set by Congress. It is meant to change total spending, so it sits outside budget neutrality.'],
+ ['Base units and time units','How anesthesia is measured. Base units reflect the anesthesia work for a procedure apart from time; time units count anesthesia time, one unit per 15 minutes.'],
+ ['Billing counts','How often each code was billed in a recent complete year. The same counts are used for both years in budget-neutrality checks, where they act as weights.'],
+ ['Budget neutrality','The rule that RVU changes can\'t by themselves raise total Medicare spending beyond a small cushion set in law. It limits price changes, not the number of services billed.'],
+ ['Centers for Medicare & Medicaid Services (CMS)','The agency that sets the fee schedule each year.'],
+ ['Conversion factor','The dollar amount Medicare pays per RVU. The same amount applies to nearly every service; see the APM and anesthesia entries for the exceptions.'],
+ ['CPT Editorial Panel','The AMA panel that creates new CPT codes and revises existing ones.'],
+ ['Current Procedural Terminology (CPT) code','The billing code for a professional service. The AMA owns the code set.'],
+ ['Direct practice expense','Costs tied to a single service: staff time, supplies and equipment. The RUC recommends the inputs; CMS prices them.'],
+ ['Facility and non-facility rates','Most codes have two practice expense values. The non-facility (office) value is higher because the practice pays the overhead; the facility (hospital) value is lower because the hospital bills Medicare separately.'],
+ ['Final rule','CMS\'s final version of the year\'s fee schedule, released around November, after it responds to comments.'],
+ ['Geographic Practice Cost Index (GPCI)','A location adjustment for each RVU part in each locality. 1.00 is the national average. It pays more where practice costs are higher and less where they are lower.'],
+ ['Government Accountability Office (GAO)','Congress\'s audit agency. It studies Medicare payment and receives final rules under the Congressional Review Act.'],
+ ['Health and Human Services (HHS)','The federal department that CMS belongs to. Its Office of Inspector General audits Medicare programs.'],
+ ['Indirect practice expense','General overhead such as rent, front-desk staff, billing and IT, spread across codes by formula.'],
+ ['Locality','A Medicare payment area. Each locality has its own set of GPCIs.'],
+ ['Malpractice (MP) RVU','The part of a code\'s value that reflects professional liability insurance, based on premium data for the specialties that perform the service.'],
+ ['Medicare Payment Advisory Commission (MedPAC)','An independent agency that advises Congress on Medicare payment and comments on CMS proposals.'],
+ ['Office of Management and Budget (OMB)','The White House office that reviews major rules, including the fee schedule, before they are released.'],
+ ['Potentially misvalued code','An existing code flagged for review because its value may be wrong, most often too high.'],
+ ['Practice expense (PE) RVU','The part of a code\'s value that reflects the cost of running a practice: staff, supplies, equipment and rent.'],
+ ['Proposed rule','CMS\'s draft of the year\'s fee schedule, released in summer and open for about 60 days of public comment.'],
+ ['Relative value unit (RVU)','A score for the resources a service takes compared with other services. Each code\'s RVUs have three parts: work, practice expense and malpractice.'],
+ ['RVS Update Committee (RUC)','The AMA/Specialty Society Relative Value Scale Update Committee, a private panel of about 30 members that recommends work values and practice expense inputs to CMS.'],
+ ['Work RVU','The part of a code\'s value that reflects the clinician\'s time, skill and effort.']
+];
+
+/* ---------- Slides ---------- */
+const $ = s => document.querySelector(s);
+const rail = $('.rail'), fill = $('.rail .fill'), stage = $('.stage'), dg = $('.dg'),
+      bar = $('.timer i'), back = $('#back'), next = $('#next'), play = $('#play');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let i = 0, playing = false, timer = null;
+
+const nodes = S.map((st, n) => {
+  const b = document.createElement('button');
+  b.className = 'node';
+  b.setAttribute('aria-label', n ? `Step ${n}: ${st.t}` : `Overview: ${st.t}`);
+  b.innerHTML = `<svg aria-hidden="true"><use href="#g-${st.icon}"/></svg>`;
+  b.addEventListener('click', () => { stop(); go(n); });
+  rail.appendChild(b);
+  return b;
+});
+
+const ICON = {
+  play:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  replay:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/></svg>'
+};
+
+function render() {
+  const st = S[i];
+  nodes.forEach((b, n) => {
+    b.classList.toggle('on', n === i);
+    b.classList.toggle('done', n < i);
+    if (n === i) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+  });
+  fill.style.width = `calc((100% - 34px) * ${i / (S.length - 1)})`;
+  $('.stepnum').textContent = i ? `Step ${i} of ${S.length - 1}` : 'Overview';
+  $('.when').textContent = st.w;
+  $('.stage h2').textContent = st.t;
+  $('.body').innerHTML = st.s;
+  dg.innerHTML = st.v;
+  stage.classList.remove('in'); void stage.offsetWidth; stage.classList.add('in');
+  back.disabled = i === 0;
+  next.disabled = i === S.length - 1;
+  const top = stage.getBoundingClientRect().top;
+  if (top < 0) window.scrollBy({top: top - 12, behavior: reduce ? 'auto' : 'smooth'});
+  updatePlay();
+}
+function updatePlay() {
+  const mode = playing ? 'pause' : (i === S.length - 1 ? 'replay' : 'play');
+  play.innerHTML = ICON[mode] + ({pause:'Pause', replay:'Replay', play:'Play'})[mode];
+  play.setAttribute('aria-pressed', playing);
+}
+function runBar() {
+  bar.classList.remove('run'); bar.style.width = '0'; void bar.offsetWidth;
+  if (playing) { bar.style.animationDuration = S[i].dur * 1000 + 'ms'; bar.style.width = ''; bar.classList.add('run'); }
+}
+function schedule() {
+  clearTimeout(timer);
+  runBar();
+  if (!playing) return;
+  timer = setTimeout(() => {
+    if (i < S.length - 1) { i++; render(); schedule(); }
+    else { playing = false; runBar(); updatePlay(); }
+  }, S[i].dur * 1000);
+}
+function go(n) { i = Math.max(0, Math.min(S.length - 1, n)); render(); schedule(); }
+function stop() { playing = false; clearTimeout(timer); runBar(); updatePlay(); }
+function start() { if (i === S.length - 1) i = 0; playing = true; render(); schedule(); }
+
+play.addEventListener('click', () => playing ? stop() : start());
+back.addEventListener('click', () => { stop(); go(i - 1); });
+next.addEventListener('click', () => { stop(); go(i + 1); });
+
+/* ---------- Drawer ---------- */
+const drawer = $('#drawer'), scrim = $('#scrim'), openBtn = $('#openRef'), closeBtn = $('#closeRef');
+const tabs = [...document.querySelectorAll('.tab')];
+let lastFocus = null;
+drawer.inert = true;
+
+function openDrawer() {
+  stop();
+  lastFocus = document.activeElement;
+  drawer.inert = false;
+  drawer.classList.add('open'); scrim.classList.add('on');
+  openBtn.setAttribute('aria-expanded', 'true');
+  document.querySelector('main').inert = true;
+  setTimeout(() => closeBtn.focus(), 50);
+}
+function closeDrawer() {
+  drawer.classList.remove('open'); scrim.classList.remove('on');
+  openBtn.setAttribute('aria-expanded', 'false');
+  document.querySelector('main').inert = false;
+  drawer.inert = true;
+  (lastFocus || openBtn).focus();
+}
+const isOpen = () => drawer.classList.contains('open');
+openBtn.addEventListener('click', openDrawer);
+closeBtn.addEventListener('click', closeDrawer);
+scrim.addEventListener('click', closeDrawer);
+
+function selectTab(t, focus) {
+  tabs.forEach(x => {
+    const on = x === t;
+    x.setAttribute('aria-selected', on);
+    x.tabIndex = on ? 0 : -1;
+    document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+  });
+  $('.tpanels').scrollTop = 0;
+  if (focus) t.focus();
+}
+tabs.forEach((t, n) => {
+  t.addEventListener('click', () => selectTab(t));
+  t.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault(); e.stopPropagation();
+      selectTab(tabs[(n + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length], true);
+    }
+  });
+});
+
+const gl = $('#gl');
+function renderGlossary(q = '') {
+  q = q.trim().toLowerCase();
+  const rows = GLOSSARY.filter(([t, d]) => !q || t.toLowerCase().includes(q) || d.toLowerCase().includes(q));
+  gl.innerHTML = rows.length
+    ? rows.map(([t, d]) => `<div><dt>${t.replace(/&/g,'&amp;')}</dt><dd>${d.replace(/&/g,'&amp;')}</dd></div>`).join('')
+    : '<p class="none">No matching terms.</p>';
+}
+renderGlossary();
+$('#glSearch').addEventListener('input', e => renderGlossary(e.target.value));
+
+/* ---------- Keyboard ---------- */
+document.addEventListener('keydown', e => {
+  if (isOpen()) {
+    if (e.key === 'Escape') { closeDrawer(); return; }
+    if (e.key === 'Tab') {
+      const f = [...drawer.querySelectorAll('button:not([tabindex="-1"]),input,[tabindex="0"]')].filter(el => !el.closest('[hidden]'));
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    return;
+  }
+  if (e.key === 'ArrowRight') { stop(); go(i + 1); }
+  else if (e.key === 'ArrowLeft') { stop(); go(i - 1); }
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); playing ? stop() : start(); }
+});
+
+render();
+if (!reduce) setTimeout(start, 800);
+</script>
+</body>
+</html>

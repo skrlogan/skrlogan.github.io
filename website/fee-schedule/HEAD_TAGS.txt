@@ -1,0 +1,19 @@
+Replace this line in your explainer:
+
+<title>Medicare Physician Fee Schedule (pilot v4)</title>
+
+with these lines:
+
+<title>How Medicare sets physician prices each year | Medicare Physician Fee Schedule</title>
+<meta name="description" content="An interactive visual guide to how the Medicare Physician Fee Schedule is set each year, in eight steps.">
+<meta name="author" content="Sai Loganathan">
+<meta property="og:type" content="website">
+<meta property="og:title" content="How Medicare sets physician prices each year">
+<meta property="og:description" content="The Medicare Physician Fee Schedule in eight steps: an interactive visual guide.">
+<meta property="og:url" content="https://skrlogan.github.io/fee-schedule/">
+<meta property="og:image" content="https://skrlogan.github.io/fee-schedule/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+Then delete this HEAD_TAGS.txt file (it isn't needed on the site).
